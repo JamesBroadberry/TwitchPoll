@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<!-- Author: https://github.com/JamesBroadberry -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Twitch Poll</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap");
+      body {
+        font-family: "Montserrat", sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="main"></div>
+    <script>
+      const getRandomNickname = () => {
+        // Anonymous access to Twitch via websockets is available using username "justinfan" followed by a random number
+        const min = 9999;
+        const max = 99999;
+        const randomNumber = Math.floor(Math.random() * (max - min)) + min;
+        return "justinfan" + randomNumber;
+      };
+
+      const handleParsedEvent = (parsedEvent) => {
+        // Only want single words and skip empty messages
+        if (
+          parsedEvent.content.includes(" ") ||
+          parsedEvent.content.length === 0
+        ) {
+          return;
+        }
+
+        latestSingleWordMessagePerUser[parsedEvent.username] = parsedEvent;
+      };
+
+      const updateUi = () => {
+        const contentArea = document.getElementById("main");
+        var counts = new Map();
+        for (const property in latestSingleWordMessagePerUser) {
+          const currentParsedMessage = latestSingleWordMessagePerUser[property];
+          var fiveMinutesAgo = new Date(Date.now() - 1000 * 60 * 5);
+          if (currentParsedMessage.timestamp < fiveMinutesAgo) {
+            continue;
+          }
+          const word = currentParsedMessage.content.toLocaleUpperCase();
+          counts.set(word, 1 + (counts.get(word) || 0));
+        }
+
+        const countsSorted = new Map(
+          [...counts.entries()].sort((a, b) => b[1] - a[1])
+        );
+
+        let html = "";
+        let currentCount = 0;
+        for (const [key, value] of countsSorted.entries()) {
+          if (currentCount >= countToShow) {
+            continue;
+          }
+          html = html + "<div>" + key + ": " + value + "<br></div>";
+          currentCount++;
+        }
+
+        contentArea.innerHTML = html;
+      };
+
+      const latestSingleWordMessagePerUser = {};
+
+      const socket = new WebSocket("wss://irc-ws.chat.twitch.tv/");
+      const nickName = getRandomNickname();
+      const urlParams = new URLSearchParams(window.location.search);
+      const twitchUsername = urlParams.get("twitch").toLocaleLowerCase();
+      const uiUpdateIntervalMs = parseInt(urlParams.get("interval")) || 250;
+      const countToShow = parseInt(urlParams.get("show")) || 5;
+      const fontSize = parseInt(urlParams.get("fontSize")) || 48;
+      const fontColour = urlParams.get("fontColour") || "black";
+
+      document.getElementsByTagName(
+        "body"
+      )[0].style = `color: ${fontColour}; font-size: ${fontSize}px;`;
+
+      socket.onopen = function (e) {
+        // "Login" with anonymous username
+        socket.send("NICK " + nickName);
+
+        // Join the Twitch chat of the requested user
+        socket.send("JOIN #" + twitchUsername);
+      };
+
+      socket.onmessage = function (event) {
+        // Need to handle "PING" messages to keep the socket connection alive
+        if (event.data.includes("PING")) {
+          console.log("Received a PING, sending back PONG");
+          socket.send("PONG :tmi.twitch.tv");
+          return;
+        }
+        // These are the messages sent by chatters - we need to process these
+        else if (event.data.includes("PRIVMSG")) {
+          const parsedEvent = {
+            timestamp: new Date(),
+            content: event.data.split("#")[1].split(":")[1].split("\r\n")[0],
+            username: event.data.split("@")[1].split(".tmi.twitch.tv")[0],
+          };
+          handleParsedEvent(parsedEvent);
+          return;
+        }
+        // Some common messages sent when first connecting that we don't care about
+        else if (
+          event.data.includes("Welcome") ||
+          event.data.includes("JOIN") ||
+          event.data.includes("NAMES")
+        ) {
+          console.log("Received a known, ignored, message", event.data);
+        }
+        // Log everything else as error to the console
+        else {
+          console.error("Unhandled message", event.data);
+          return;
+        }
+      };
+
+      // Trigger the UI update interval
+      setInterval(updateUi, uiUpdateIntervalMs);
+    </script>
+  </body>
+</html>
