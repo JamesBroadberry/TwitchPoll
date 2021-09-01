@@ -13,7 +13,7 @@
     </style>
   </head>
   <body>
-    <div id="main"></div>
+    <div id="main">Starting up...</div>
     <script>
       const getRandomNickname = () => {
         // Anonymous access to Twitch via websockets is available using username "justinfan" followed by a random number
@@ -62,6 +62,10 @@
           currentCount++;
         }
 
+        if (html === "") {
+          html = "<strong>Waiting for single words in chat...</strong>";
+        }
+
         contentArea.innerHTML = html;
       };
 
@@ -76,16 +80,25 @@
       const fontSize = parseInt(urlParams.get("fontSize")) || 48;
       const fontColour = urlParams.get("fontColour") || "black";
 
+      let updateUiInterval;
+
       document.getElementsByTagName(
         "body"
       )[0].style = `color: ${fontColour}; font-size: ${fontSize}px;`;
 
       socket.onopen = function (e) {
+        const contentArea = document.getElementById("main");
+
+        contentArea.innerHTML = "<strong>Connecting...</strong>";
         // "Login" with anonymous username
         socket.send("NICK " + nickName);
 
+        contentArea.innerHTML = "<strong>Joining Twitch chat...</strong>";
         // Join the Twitch chat of the requested user
         socket.send("JOIN #" + twitchUsername);
+
+        // Trigger the UI update interval
+        updateUiInterval = setInterval(updateUi, uiUpdateIntervalMs);
       };
 
       socket.onmessage = function (event) {
@@ -120,8 +133,21 @@
         }
       };
 
-      // Trigger the UI update interval
-      setInterval(updateUi, uiUpdateIntervalMs);
+      socket.onerror = function (event) {
+        clearInterval(updateUiInterval);
+        const contentArea = document.getElementById("main");
+        contentArea.innerHTML =
+          "<strong>🛑 Connection to Twitch Chat Error 🛑</strong>";
+        console.error("WebSocket error:", event);
+      };
+
+      socket.onclose = function (event) {
+        clearInterval(updateUiInterval);
+        const contentArea = document.getElementById("main");
+        contentArea.innerHTML =
+          "<strong>⚠ Connection to Twitch Closed 😭 ⚠</strong>";
+        console.error("WebSocket closed:", event);
+      };
     </script>
   </body>
 </html>

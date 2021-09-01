@@ -35,7 +35,3 @@ Using the URL, modify the query parameters to your needs:
 
 An example built URL would be:
 https://jamesbroadberry.github.io/TwitchPoll/?twitch=thejrm_&fontColour=darkgrey
-
-# Remarks
-
-When there are no messages or if the socket fails to connect, the page will just stay blank for now
