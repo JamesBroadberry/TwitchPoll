@@ -100,7 +100,7 @@
 
       socket.onmessage = function (event) {
         // Need to handle "PING" messages to keep the socket connection alive
-        if (event.data.includes("PING")) {
+        if (event.data.startsWith("PING :tmi.twitch.tv")) {
           console.log("Received a PING, sending back PONG");
           socket.send("PONG :tmi.twitch.tv");
           return;
