@@ -60,7 +60,7 @@
         }
 
         if (html === "") {
-          html = "<strong>Waiting for single words in chat...</strong>";
+          html = "Waiting for single words in chat...";
         }
 
         contentArea.innerHTML = html;
@@ -71,85 +71,90 @@
       const socket = new WebSocket("wss://irc-ws.chat.twitch.tv/");
       const nickName = getRandomNickname();
       const urlParams = new URLSearchParams(window.location.search);
-      const twitchUsername = urlParams.get("twitch").toLocaleLowerCase();
+      const twitchUsername = (
+        urlParams.get("twitch") || ""
+      ).toLocaleLowerCase();
       const uiUpdateIntervalMs = parseInt(urlParams.get("interval")) || 250;
       const countToShow = parseInt(urlParams.get("show")) || 5;
       const fontSize = parseInt(urlParams.get("fontSize")) || 48;
       const fontColour = urlParams.get("fontColour") || "black";
-
-      let updateUiInterval;
-
       document.getElementsByTagName(
         "body"
       )[0].style = `color: ${fontColour}; font-size: ${fontSize}px;`;
 
-      socket.onopen = function (e) {
-        const contentArea = document.getElementById("main");
+      if (twitchUsername.length > 0) {
+        let updateUiInterval;
 
-        contentArea.innerHTML = "<strong>Connecting...</strong>";
-        // "Login" with anonymous username
-        socket.send("NICK " + nickName);
+        socket.onopen = function (e) {
+          const contentArea = document.getElementById("main");
 
-        contentArea.innerHTML = "<strong>Joining Twitch chat...</strong>";
-        // Join the Twitch chat of the requested user
-        socket.send("JOIN #" + twitchUsername);
+          contentArea.innerHTML = "Connecting...";
+          // "Login" with anonymous username
+          socket.send("NICK " + nickName);
 
-        // Trigger the UI update interval
-        updateUiInterval = setInterval(updateUi, uiUpdateIntervalMs);
-      };
+          contentArea.innerHTML = "Joining Twitch chat...";
+          // Join the Twitch chat of the requested user
+          socket.send("JOIN #" + twitchUsername);
 
-      socket.onmessage = function (event) {
-        // Need to handle "PING" messages to keep the socket connection alive
-        if (event.data.startsWith("PING :tmi.twitch.tv")) {
-          console.log("Received a PING, sending back PONG");
-          socket.send("PONG :tmi.twitch.tv");
-          return;
-        }
-        // These are the messages sent by chatters - we need to process these
-        else if (event.data.includes("PRIVMSG")) {
-          let messagePart = event.data.split("#")[1];
-          let messageContent = messagePart
-            .substring(messagePart.indexOf(":") + 1)
-            .split("\r\n")[0];
+          // Trigger the UI update interval
+          updateUiInterval = setInterval(updateUi, uiUpdateIntervalMs);
+        };
 
-          const parsedEvent = {
-            timestamp: new Date(),
-            content: messageContent,
-            username: event.data.split("@")[1].split(".tmi.twitch.tv")[0],
-          };
-          handleParsedEvent(parsedEvent);
-          return;
-        }
-        // Some common messages sent when first connecting that we don't care about
-        else if (
-          event.data.includes("Welcome") ||
-          event.data.includes("JOIN") ||
-          event.data.includes("NAMES")
-        ) {
-          console.log("Received a known, ignored, message", event.data);
-        }
-        // Log everything else as error to the console
-        else {
-          console.error("Unhandled message", event.data);
-          return;
-        }
-      };
+        socket.onmessage = function (event) {
+          // Need to handle "PING" messages to keep the socket connection alive
+          if (event.data.startsWith("PING :tmi.twitch.tv")) {
+            console.log("Received a PING, sending back PONG");
+            socket.send("PONG :tmi.twitch.tv");
+            return;
+          }
+          // These are the messages sent by chatters - we need to process these
+          else if (event.data.includes("PRIVMSG")) {
+            let messagePart = event.data.split("#")[1];
+            let messageContent = messagePart
+              .substring(messagePart.indexOf(":") + 1)
+              .split("\r\n")[0];
 
-      socket.onerror = function (event) {
-        clearInterval(updateUiInterval);
+            const parsedEvent = {
+              timestamp: new Date(),
+              content: messageContent,
+              username: event.data.split("@")[1].split(".tmi.twitch.tv")[0],
+            };
+            handleParsedEvent(parsedEvent);
+            return;
+          }
+          // Some common messages sent when first connecting that we don't care about
+          else if (
+            event.data.includes("Welcome") ||
+            event.data.includes("JOIN") ||
+            event.data.includes("NAMES")
+          ) {
+            console.log("Received a known, ignored, message", event.data);
+          }
+          // Log everything else as error to the console
+          else {
+            console.error("Unhandled message", event.data);
+            return;
+          }
+        };
+
+        socket.onerror = function (event) {
+          clearInterval(updateUiInterval);
+          const contentArea = document.getElementById("main");
+          contentArea.innerHTML = "🛑 Connection to Twitch Chat Error 🛑";
+          console.error("WebSocket error:", event);
+        };
+
+        socket.onclose = function (event) {
+          clearInterval(updateUiInterval);
+          const contentArea = document.getElementById("main");
+          contentArea.innerHTML = "⚠ Connection to Twitch Closed 😭 ⚠";
+          console.error("WebSocket closed:", event);
+        };
+      } else {
         const contentArea = document.getElementById("main");
         contentArea.innerHTML =
-          "<strong>🛑 Connection to Twitch Chat Error 🛑</strong>";
-        console.error("WebSocket error:", event);
-      };
-
-      socket.onclose = function (event) {
-        clearInterval(updateUiInterval);
-        const contentArea = document.getElementById("main");
-        contentArea.innerHTML =
-          "<strong>⚠ Connection to Twitch Closed 😭 ⚠</strong>";
-        console.error("WebSocket closed:", event);
-      };
+          "Please set Twitch account to use <br/> Full customization options available on GitHub";
+      }
     </script>
   </body>
 </html>
