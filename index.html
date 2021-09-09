@@ -24,11 +24,8 @@
       };
 
       const handleParsedEvent = (parsedEvent) => {
-        // Only want single words and skip empty messages
-        if (
-          parsedEvent.content.includes(" ") ||
-          parsedEvent.content.length === 0
-        ) {
+        // Only consider messages containing ONLY alphanumeric content
+        if (!/^[a-z0-9]+$/i.test(parsedEvent.content)) {
           return;
         }
 
@@ -110,9 +107,14 @@
         }
         // These are the messages sent by chatters - we need to process these
         else if (event.data.includes("PRIVMSG")) {
+          let messagePart = event.data.split("#")[1];
+          let messageContent = messagePart
+            .substring(messagePart.indexOf(":") + 1)
+            .split("\r\n")[0];
+
           const parsedEvent = {
             timestamp: new Date(),
-            content: event.data.split("#")[1].split(":")[1].split("\r\n")[0],
+            content: messageContent,
             username: event.data.split("@")[1].split(".tmi.twitch.tv")[0],
           };
           handleParsedEvent(parsedEvent);
