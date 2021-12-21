@@ -18,7 +18,7 @@ Doing it like this allows chatters to change their vote by sending another messa
 
 Add a browser/HTML source in your streaming software and add the URL you need and configure as necessary.
 
-https://jamesbroadberry.github.io/TwitchPoll/?twitch={TwitchChannel}&interval={HowOftenTheUiUpdates}&show={NumberOfEntriesToShow}&fontSize={fontSizeInPixels}&fontColour={validHtmlColour}
+https://jamesbroadberry.github.io/TwitchPoll/?twitch={TwitchChannel}&interval={HowOftenTheUiUpdates}&show={NumberOfEntriesToShow}&fontSize={fontSizeInPixels}&fontColour={validHtmlColour}&fontStrokeColour={fontStrokeColour}&fontStrokeWidth={fontStrokeWidth}
 
 Using the URL, modify the query parameters to your needs:
 
@@ -31,7 +31,11 @@ Using the URL, modify the query parameters to your needs:
 - **fontSize** _(not required, defaults to 48)_
   - If you need a custom font size, leave as an integer in pixels
 - **fontColour** _(not required, defaults to black)_
-  - Change the font colour to something that better matches your stream
+  - Change the font colour to something that better matches your stream (if using a hex colour, you'll need to URL encode the '#' e.g. %23AAAAAA for #AAAAAA)
+- **fontStrokeColour** _(not required, defaults to red)_
+  - Change the font outline colour (if using a hex colour, you'll need to URL encode the '#' e.g. %23AAAAAA for #AAAAAA)
+- **fontStrokeWidth** _(not required, defaults to 0px)_
+  - Change the font outline width
 
 An example built URL would be:
-https://jamesbroadberry.github.io/TwitchPoll/?twitch=thejrm_&fontColour=darkgrey
+https://jamesbroadberry.github.io/TwitchPoll/?twitch=thejrm_&fontColour=white&fontStrokeColour=black&fontStrokeWidth=1

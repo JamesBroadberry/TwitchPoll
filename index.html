@@ -1,160 +1,227 @@
 <!DOCTYPE html>
 <!-- Author: https://github.com/JamesBroadberry -->
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Twitch Poll</title>
-    <style>
-      @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap");
-      body {
-        font-family: "Montserrat", sans-serif;
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Twitch Poll</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap");
+
+    body {
+      font-family: "Montserrat", sans-serif;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="main">Starting up...</div>
+  <script>
+    const getRandomNickname = () => {
+      // Anonymous access to Twitch via websockets is available using username "justinfan" followed by a random number
+      const min = 9999;
+      const max = 99999;
+      const randomNumber = Math.floor(Math.random() * (max - min)) + min;
+      return "justinfan" + randomNumber;
+    };
+
+    const handleParsedEvent = (parsedEvent) => {
+      latestSingleWordMessagePerUser[parsedEvent.username] = parsedEvent;
+    };
+
+    const updateEmoteMap = (rawMessage, messageContent) => {
+      if (wordEmoteMap[messageContent.toLocaleUpperCase()] === undefined) {
+
+        const twitchEmoteRegex = /emotes=([a-z0-9_]*)/;
+        const twitchEmoteMatches = rawMessage.match(twitchEmoteRegex);
+        if (twitchEmoteMatches[1] !== undefined && twitchEmoteMatches[1].length > 0) {
+          wordEmoteMap[messageContent.toLocaleUpperCase()] = `https://static-cdn.jtvnw.net/emoticons/v2/${twitchEmoteMatches[1]}/default/dark/3.0`;
+        }
       }
-    </style>
-  </head>
-  <body>
-    <div id="main">Starting up...</div>
-    <script>
-      const getRandomNickname = () => {
-        // Anonymous access to Twitch via websockets is available using username "justinfan" followed by a random number
-        const min = 9999;
-        const max = 99999;
-        const randomNumber = Math.floor(Math.random() * (max - min)) + min;
-        return "justinfan" + randomNumber;
+
+      return;
+    }
+
+    const updateUi = () => {
+      const contentArea = document.getElementById("main");
+      var counts = new Map();
+      for (const property in latestSingleWordMessagePerUser) {
+        const currentParsedMessage = latestSingleWordMessagePerUser[property];
+        var fiveMinutesAgo = new Date(Date.now() - 1000 * 60 * 5);
+        if (currentParsedMessage.timestamp < fiveMinutesAgo) {
+          continue;
+        }
+        const word = currentParsedMessage.content.toLocaleUpperCase();
+        counts.set(word, 1 + (counts.get(word) || 0));
+      }
+
+      const countsSorted = new Map(
+        [...counts.entries()].sort((a, b) => b[1] - a[1])
+      );
+
+      let html = "";
+      let currentCount = 0;
+      for (const [key, value] of countsSorted.entries()) {
+        if (currentCount >= countToShow) {
+          continue;
+        }
+        const foundEmote = wordEmoteMap[key.toLocaleUpperCase()];
+        const keyToDisplay = foundEmote ? `<img src="${foundEmote}" style='height: ${fontSize}px' />` : `<span>${key}</span>`
+        html = html + `<div style='height: ${fontSize * 1.1}'>` + keyToDisplay + ": " + value + "<br></div>";
+        currentCount++;
+      }
+
+      if (html === "") {
+        html = "Waiting for single words in chat...";
+      }
+
+      contentArea.innerHTML = html;
+    };
+
+    const latestSingleWordMessagePerUser = {};
+    const wordEmoteMap = {};
+
+    const socket = new WebSocket("wss://irc-ws.chat.twitch.tv/");
+    const nickName = getRandomNickname();
+    const urlParams = new URLSearchParams(window.location.search);
+    const twitchUsername = (
+      urlParams.get("twitch") || ""
+    ).toLocaleLowerCase();
+    const uiUpdateIntervalMs = parseInt(urlParams.get("interval")) || 250;
+    const countToShow = parseInt(urlParams.get("show")) || 5;
+    const fontSize = parseInt(urlParams.get("fontSize")) || 48;
+    const fontColour = urlParams.get("fontColour") || "black";
+    const fontStrokeColour = urlParams.get("fontStrokeColour") || "red";
+    const fontStrokeWidth = parseInt(urlParams.get("fontStrokeWidth")) || 0;
+    document.getElementsByTagName(
+      "body"
+    )[0].style = `color: ${fontColour}; font-size: ${fontSize}px; -webkit-text-stroke: ${fontStrokeColour}; -webkit-text-stroke-width: ${fontStrokeWidth}px;`;
+
+    if (twitchUsername.length > 0) {
+      let updateUiInterval;
+
+      socket.onopen = function (e) {
+        const contentArea = document.getElementById("main");
+
+        contentArea.innerHTML = "Connecting...";
+        // Get metadata with messages
+        socket.send("CAP REQ :twitch.tv/tags twitch.tv/commands");
+
+        // "Login" with anonymous username
+        socket.send("NICK " + nickName);
+
+        contentArea.innerHTML = "Joining Twitch chat...";
+        // Join the Twitch chat of the requested user
+        socket.send("JOIN #" + twitchUsername);
+
+        // Trigger the UI update interval
+        updateUiInterval = setInterval(updateUi, uiUpdateIntervalMs);
       };
 
-      const handleParsedEvent = (parsedEvent) => {
-        // Only consider messages containing ONLY alphanumeric content
-        if (!/^[a-z0-9]+$/i.test(parsedEvent.content)) {
+      socket.onmessage = function (event) {
+        // Need to handle "PING" messages to keep the socket connection alive
+        if (event.data.startsWith("PING :tmi.twitch.tv")) {
+          console.log("Received a PING, sending back PONG");
+          socket.send("PONG :tmi.twitch.tv");
           return;
         }
+        // Includes some stream meta-data including the user ID of the twitch channel
+        else if (event.data.includes("JOIN")) {
+          const twitchRoomIdRegex = /room-id=([a-z0-9_]*);/m;
+          const twitchRoomIdMatches = event.data.match(twitchRoomIdRegex);
+          const twitchUserId = twitchRoomIdMatches[1];
+          console.log("Found Twitch User ID:", twitchUserId);
 
-        latestSingleWordMessagePerUser[parsedEvent.username] = parsedEvent;
+          updateWordEmoteMapFromTwitchUserId(twitchUserId);
+        }
+        // These are the messages sent by chatters - we need to process these
+        else if (event.data.includes("PRIVMSG")) {
+
+          const twitchUsernameRegex = /@([a-z0-9_]*)\.tmi\.twitch\.tv/;
+          const twitchUsernameMatches = event.data.match(twitchUsernameRegex);
+
+          let username = twitchUsernameMatches[1];
+
+          const twitchMessageRegex = /(.*)PRIVMSG (.*) :(.*)/;
+          const twitchMessageMatches = event.data.match(twitchMessageRegex);
+
+          const messageContent = twitchMessageMatches[3].split("\r\n")[0].trim();
+
+          // Only consider messages containing ONLY alphanumeric content
+          if (!/^[a-z0-9]+$/i.test(messageContent)) {
+            return;
+          }
+
+          updateEmoteMap(event.data, messageContent);
+
+          const parsedEvent = {
+            timestamp: new Date(),
+            content: messageContent,
+            username: username,
+          };
+          handleParsedEvent(parsedEvent);
+          return;
+        }
+        // Some common messages sent when first connecting that we don't care about
+        else if (
+          event.data.includes("Welcome") ||
+          event.data.includes("NAMES") ||
+          event.data.includes("USERNOTICE") ||
+          event.data.includes("CLEARCHAT") ||
+          event.data.includes("HOSTTARGET") ||
+          event.data.includes("CAP * ACK :twitch.tv/tags twitch.tv/commands")
+        ) {
+          // Ignore known messages that we don't care about
+          // console.log("Received a known, ignored, message", event.data);
+        }
+        // Log everything else as error to the console
+        else {
+          console.error("Unhandled message", event.data);
+          return;
+        }
       };
 
-      const updateUi = () => {
+      socket.onerror = function (event) {
+        clearInterval(updateUiInterval);
         const contentArea = document.getElementById("main");
-        var counts = new Map();
-        for (const property in latestSingleWordMessagePerUser) {
-          const currentParsedMessage = latestSingleWordMessagePerUser[property];
-          var fiveMinutesAgo = new Date(Date.now() - 1000 * 60 * 5);
-          if (currentParsedMessage.timestamp < fiveMinutesAgo) {
-            continue;
-          }
-          const word = currentParsedMessage.content.toLocaleUpperCase();
-          counts.set(word, 1 + (counts.get(word) || 0));
-        }
-
-        const countsSorted = new Map(
-          [...counts.entries()].sort((a, b) => b[1] - a[1])
-        );
-
-        let html = "";
-        let currentCount = 0;
-        for (const [key, value] of countsSorted.entries()) {
-          if (currentCount >= countToShow) {
-            continue;
-          }
-          html = html + "<div>" + key + ": " + value + "<br></div>";
-          currentCount++;
-        }
-
-        if (html === "") {
-          html = "Waiting for single words in chat...";
-        }
-
-        contentArea.innerHTML = html;
+        contentArea.innerHTML = "🛑 Connection to Twitch Chat Error 🛑";
+        console.error("WebSocket error:", event);
       };
 
-      const latestSingleWordMessagePerUser = {};
-
-      const socket = new WebSocket("wss://irc-ws.chat.twitch.tv/");
-      const nickName = getRandomNickname();
-      const urlParams = new URLSearchParams(window.location.search);
-      const twitchUsername = (
-        urlParams.get("twitch") || ""
-      ).toLocaleLowerCase();
-      const uiUpdateIntervalMs = parseInt(urlParams.get("interval")) || 250;
-      const countToShow = parseInt(urlParams.get("show")) || 5;
-      const fontSize = parseInt(urlParams.get("fontSize")) || 48;
-      const fontColour = urlParams.get("fontColour") || "black";
-      document.getElementsByTagName(
-        "body"
-      )[0].style = `color: ${fontColour}; font-size: ${fontSize}px;`;
-
-      if (twitchUsername.length > 0) {
-        let updateUiInterval;
-
-        socket.onopen = function (e) {
-          const contentArea = document.getElementById("main");
-
-          contentArea.innerHTML = "Connecting...";
-          // "Login" with anonymous username
-          socket.send("NICK " + nickName);
-
-          contentArea.innerHTML = "Joining Twitch chat...";
-          // Join the Twitch chat of the requested user
-          socket.send("JOIN #" + twitchUsername);
-
-          // Trigger the UI update interval
-          updateUiInterval = setInterval(updateUi, uiUpdateIntervalMs);
-        };
-
-        socket.onmessage = function (event) {
-          // Need to handle "PING" messages to keep the socket connection alive
-          if (event.data.startsWith("PING :tmi.twitch.tv")) {
-            console.log("Received a PING, sending back PONG");
-            socket.send("PONG :tmi.twitch.tv");
-            return;
-          }
-          // These are the messages sent by chatters - we need to process these
-          else if (event.data.includes("PRIVMSG")) {
-            let messagePart = event.data.split("#")[1];
-            let messageContent = messagePart
-              .substring(messagePart.indexOf(":") + 1)
-              .split("\r\n")[0];
-
-            const parsedEvent = {
-              timestamp: new Date(),
-              content: messageContent,
-              username: event.data.split("@")[1].split(".tmi.twitch.tv")[0],
-            };
-            handleParsedEvent(parsedEvent);
-            return;
-          }
-          // Some common messages sent when first connecting that we don't care about
-          else if (
-            event.data.includes("Welcome") ||
-            event.data.includes("JOIN") ||
-            event.data.includes("NAMES")
-          ) {
-            console.log("Received a known, ignored, message", event.data);
-          }
-          // Log everything else as error to the console
-          else {
-            console.error("Unhandled message", event.data);
-            return;
-          }
-        };
-
-        socket.onerror = function (event) {
-          clearInterval(updateUiInterval);
-          const contentArea = document.getElementById("main");
-          contentArea.innerHTML = "🛑 Connection to Twitch Chat Error 🛑";
-          console.error("WebSocket error:", event);
-        };
-
-        socket.onclose = function (event) {
-          clearInterval(updateUiInterval);
-          const contentArea = document.getElementById("main");
-          contentArea.innerHTML = "⚠ Connection to Twitch Closed 😭 ⚠";
-          console.error("WebSocket closed:", event);
-        };
-      } else {
+      socket.onclose = function (event) {
+        clearInterval(updateUiInterval);
         const contentArea = document.getElementById("main");
-        contentArea.innerHTML =
-          "Please set Twitch account to use <br/> Full customization options available on GitHub";
-      }
-    </script>
-  </body>
+        contentArea.innerHTML = "⚠ Connection to Twitch Closed 😭 ⚠";
+        console.error("WebSocket closed:", event);
+      };
+    } else {
+      const contentArea = document.getElementById("main");
+      contentArea.innerHTML =
+        "Please set Twitch account to use <br/> Full customization options available on GitHub";
+    }
+
+    const updateWordEmoteMapFromTwitchUserId = async (twitchUserId) => {
+      try{
+        const ffzGlobalEmotes = await (await fetch("https://api.betterttv.net/3/cached/frankerfacez/emotes/global")).json();
+        const ffzChannelEmotes = await (await fetch(`https://api.betterttv.net/3/cached/frankerfacez/users/twitch/${twitchUserId}`)).json();
+        const ffzEmotes = ffzGlobalEmotes.concat(ffzChannelEmotes);
+        ffzEmotes.forEach(emote => {
+          wordEmoteMap[emote.code.toLocaleUpperCase()] = emote.images?.["4x"] ?? emote.images?.["2x"] ?? emote.images?.["1x"];
+        });
+      }catch {}
+      
+      try{
+        const bttvGlobalEmotes = await (await fetch("https://api.betterttv.net/3/cached/emotes/global")).json();
+        const bttvChannelEmotes = await (await fetch(`https://api.betterttv.net/3/cached/users/twitch/${twitchUserId}`)).json();
+        const bttvEmotes = bttvGlobalEmotes.concat(bttvChannelEmotes.sharedEmotes).concat(bttvChannelEmotes.channelEmotes);
+
+        bttvEmotes.forEach(emote => {
+          wordEmoteMap[emote.code.toLocaleUpperCase()] = `https://cdn.betterttv.net/emote/${emote.id}/1x`;
+        });
+      } catch {}
+    }
+  </script>
+</body>
+
 </html>
