@@ -18,6 +18,7 @@
 <body>
   <div id="main">Starting up...</div>
   <script>
+
     const getRandomNickname = () => {
       // Anonymous access to Twitch via websockets is available using username "justinfan" followed by a random number
       const min = 9999;
@@ -119,21 +120,12 @@
         updateUiInterval = setInterval(updateUi, uiUpdateIntervalMs);
       };
 
-      socket.onmessage = function (event) {
+      socket.onmessage = async function (event) {
         // Need to handle "PING" messages to keep the socket connection alive
         if (event.data.startsWith("PING :tmi.twitch.tv")) {
           console.log("Received a PING, sending back PONG");
           socket.send("PONG :tmi.twitch.tv");
           return;
-        }
-        // Includes some stream meta-data including the user ID of the twitch channel
-        else if (event.data.includes("JOIN")) {
-          const twitchRoomIdRegex = /room-id=([a-z0-9_]*);/m;
-          const twitchRoomIdMatches = event.data.match(twitchRoomIdRegex);
-          const twitchUserId = twitchRoomIdMatches[1];
-          console.log("Found Twitch User ID:", twitchUserId);
-
-          updateWordEmoteMapFromTwitchUserId(twitchUserId);
         }
         // These are the messages sent by chatters - we need to process these
         else if (event.data.includes("PRIVMSG")) {
@@ -162,6 +154,15 @@
           };
           handleParsedEvent(parsedEvent);
           return;
+        }
+        // Includes some stream meta-data including the user ID of the twitch channel
+        else if (event.data.includes("JOIN")) {
+          const twitchRoomIdRegex = /room-id=([a-z0-9_]*);/m;
+          const twitchRoomIdMatches = event.data.match(twitchRoomIdRegex);
+          const twitchUserId = twitchRoomIdMatches[1];
+          console.log("Found Twitch User ID:", twitchUserId);
+
+          await updateWordEmoteMapFromTwitchUserId(twitchUserId);
         }
         // Some common messages sent when first connecting that we don't care about
         else if (
@@ -202,16 +203,16 @@
     }
 
     const updateWordEmoteMapFromTwitchUserId = async (twitchUserId) => {
-      try{
+      try {
         const ffzGlobalEmotes = await (await fetch("https://api.betterttv.net/3/cached/frankerfacez/emotes/global")).json();
         const ffzChannelEmotes = await (await fetch(`https://api.betterttv.net/3/cached/frankerfacez/users/twitch/${twitchUserId}`)).json();
         const ffzEmotes = ffzGlobalEmotes.concat(ffzChannelEmotes);
         ffzEmotes.forEach(emote => {
           wordEmoteMap[emote.code.toLocaleUpperCase()] = emote.images["4x"] || emote.images["2x"] || emote.images["1x"];
         });
-      }catch {}
-      
-      try{
+      } catch { }
+
+      try {
         const bttvGlobalEmotes = await (await fetch("https://api.betterttv.net/3/cached/emotes/global")).json();
         const bttvChannelEmotes = await (await fetch(`https://api.betterttv.net/3/cached/users/twitch/${twitchUserId}`)).json();
         const bttvEmotes = bttvGlobalEmotes.concat(bttvChannelEmotes.sharedEmotes).concat(bttvChannelEmotes.channelEmotes);
@@ -219,8 +220,9 @@
         bttvEmotes.forEach(emote => {
           wordEmoteMap[emote.code.toLocaleUpperCase()] = `https://cdn.betterttv.net/emote/${emote.id}/1x`;
         });
-      } catch {}
+      } catch { }
     }
+
   </script>
 </body>
 
