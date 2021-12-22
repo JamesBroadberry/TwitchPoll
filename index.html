@@ -207,7 +207,7 @@
         const ffzChannelEmotes = await (await fetch(`https://api.betterttv.net/3/cached/frankerfacez/users/twitch/${twitchUserId}`)).json();
         const ffzEmotes = ffzGlobalEmotes.concat(ffzChannelEmotes);
         ffzEmotes.forEach(emote => {
-          wordEmoteMap[emote.code.toLocaleUpperCase()] = emote.images?.["4x"] ?? emote.images?.["2x"] ?? emote.images?.["1x"];
+          wordEmoteMap[emote.code.toLocaleUpperCase()] = emote.images["4x"] || emote.images["2x"] || emote.images["1x"];
         });
       }catch {}
       
