@@ -93,13 +93,11 @@
     const countToShow = parseInt(urlParams.get("show")) || 5;
     const fontSize = parseInt(urlParams.get("fontSize")) || 48;
     const fontColour = urlParams.get("fontColour") || "black";
-    const fontStrokeColour = urlParams.get("fontStrokeColour") || "red";
-    const fontStrokeWidth = parseInt(urlParams.get("fontStrokeWidth")) || 0;
     let twitchUserId = undefined;
 
     document.getElementsByTagName(
       "body"
-    )[0].style = `color: ${fontColour}; font-size: ${fontSize}px; -webkit-text-stroke: ${fontStrokeColour}; -webkit-text-stroke-width: ${fontStrokeWidth}px;`;
+    )[0].style = `color: ${fontColour}; font-size: ${fontSize}px;`;
 
     if (twitchUsername.length > 0) {
       let updateUiInterval;
