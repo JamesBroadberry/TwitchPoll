@@ -32,6 +32,10 @@ Using the URL, modify the query parameters to your needs:
   - If you need a custom font size, leave as an integer in pixels
 - **fontColour** _(not required, defaults to black)_
   - Change the font colour to something that better matches your stream (if using a hex colour, you'll need to URL encode the '#' e.g. %23AAAAAA for #AAAAAA)
+- **fontStrokeColour** _(not required, defaults to black)_
+  - Change the font outline colour (if using a hex colour, you'll need to URL encode the '#' e.g. %23AAAAAA for #AAAAAA)
+- **fontStrokeWidth** _(not required, defaults to 1px)_
+  - Change the font outline width
 
 An example built URL would be:
 https://jamesbroadberry.github.io/TwitchPoll/?twitch=thejrm_&fontColour=white&fontStrokeColour=black&fontStrokeWidth=1

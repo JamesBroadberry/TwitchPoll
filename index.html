@@ -7,10 +7,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Twitch Poll</title>
   <style>
-    @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap");
-
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat&family=Roboto:wght@400;700&display=swap');
     body {
-      font-family: "Montserrat", sans-serif;
+      font-family: "Roboto", sans-serif;
     }
   </style>
 </head>
@@ -30,6 +29,16 @@
     const handleParsedEvent = (parsedEvent) => {
       latestSingleWordMessagePerUser[parsedEvent.username] = parsedEvent;
     };
+
+    const formatIndexToRank = (index) => {
+
+      const nth = (n) => {return["st","nd","rd"][((n+90)%100-10)%10-1]||"th"}
+
+      const returnValue = `${(index + 1)}${nth(index+1)}`;
+
+      return index === 0 ? `🏆${returnValue}🏆` : returnValue;
+
+    }
 
     const updateEmoteMap = (rawMessage, messageContent) => {
       if (wordEmoteMap[messageContent.toLocaleUpperCase()] === undefined) {
@@ -61,19 +70,25 @@
         [...counts.entries()].sort((a, b) => b[1] - a[1])
       );
 
-      let html = "";
+      let html = `<div style='display: grid; gap ${fontSize * 0.2}px; grid-template-areas: "a a a"; justify-items: center;'>
+                  <div style='grid-column: 1 / span 3; font-weight: bold;'>Top words in chat!</div>`;
       let currentCount = 0;
       for (const [key, value] of countsSorted.entries()) {
         if (currentCount >= countToShow) {
           continue;
         }
         const foundEmote = wordEmoteMap[key.toLocaleUpperCase()];
-        const keyToDisplay = foundEmote ? `<img src="${foundEmote}" style='height: ${fontSize}px' />` : `<span>${key}</span>`
-        html = html + `<div style='height: ${fontSize * 1.1}'>` + keyToDisplay + ": " + value + "<br></div>";
+        const keyToDisplay = foundEmote ? `<span style='display: flex; align-items: center;'><img src="${foundEmote}" style='height: ${fontSize}px' /></span>` : `<span>${key}</span>`
+
+        html = html + `<span>${formatIndexToRank(currentCount)}</span>
+                       ${keyToDisplay}
+                       <span>${value} vote${value === 1 ? "" : "s"}</span>`;
         currentCount++;
       }
 
-      if (html === "") {
+      html += "</div>";
+
+      if (currentCount === 0) {
         html = "Waiting for single words in chat...";
       }
 
@@ -92,12 +107,17 @@
     const uiUpdateIntervalMs = parseInt(urlParams.get("interval")) || 250;
     const countToShow = parseInt(urlParams.get("show")) || 5;
     const fontSize = parseInt(urlParams.get("fontSize")) || 48;
-    const fontColour = urlParams.get("fontColour") || "black";
+    const fontColour = urlParams.get("fontColour") || "white";
+    const fontStrokeColour = urlParams.get("fontStrokeColour") || "black";
+    const fontStrokeWidth = parseInt(urlParams.get("fontStrokeWidth")) || 1;    
     let twitchUserId = undefined;
 
     document.getElementsByTagName(
       "body"
-    )[0].style = `color: ${fontColour}; font-size: ${fontSize}px;`;
+    )[0].style = `
+    color: ${fontColour}; font-size: ${fontSize}px;
+    text-shadow: -${fontStrokeWidth}px -${fontStrokeWidth}px 0 ${fontStrokeColour}, ${fontStrokeWidth}px -${fontStrokeWidth}px 0 ${fontStrokeColour}, -${fontStrokeWidth}px ${fontStrokeWidth}px 0 ${fontStrokeColour}, ${fontStrokeWidth}px ${fontStrokeWidth}px 0 ${fontStrokeColour};
+    `;
 
     if (twitchUsername.length > 0) {
       let updateUiInterval;
