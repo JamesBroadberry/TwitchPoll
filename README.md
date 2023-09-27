@@ -18,7 +18,7 @@ Doing it like this allows chatters to change their vote by sending another messa
 
 Add a browser/HTML source in your streaming software and add the URL you need and configure as necessary.
 
-https://jamesbroadberry.github.io/TwitchPoll/?twitch={TwitchChannel}&interval={HowOftenTheUiUpdates}&show={NumberOfEntriesToShow}&fontSize={fontSizeInPixels}&fontColour={validHtmlColour}&fontStrokeColour={fontStrokeColour}&fontStrokeWidth={fontStrokeWidth}
+https://jamesbroadberry.github.io/TwitchPoll/?twitch={TwitchChannel}&interval={HowOftenTheUiUpdates}&show={NumberOfEntriesToShow}&fontSize={fontSizeInPixels}&fontColour={validHtmlColour}&fontStrokeColour={fontStrokeColour}&fontStrokeWidth={fontStrokeWidth}&ignore={commaSeperatedIgnoreList}
 
 Using the URL, modify the query parameters to your needs:
 
@@ -36,6 +36,8 @@ Using the URL, modify the query parameters to your needs:
   - Change the font outline colour (if using a hex colour, you'll need to URL encode the '#' e.g. %23AAAAAA for #AAAAAA)
 - **fontStrokeWidth** _(not required, defaults to 1px)_
   - Change the font outline width
+- **ignore** _(not required, defaults to empty)_
+  - Comma seperated list of words to ignore when displaying the UI
 
 An example built URL would be:
-https://jamesbroadberry.github.io/TwitchPoll/?twitch=thejrm_&fontColour=white&fontStrokeColour=black&fontStrokeWidth=1
+https://jamesbroadberry.github.io/TwitchPoll/?twitch=thejrm_&fontColour=white&fontStrokeColour=black&fontStrokeWidth=1&ignore=hello,world

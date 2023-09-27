@@ -63,6 +63,11 @@
           continue;
         }
         const word = currentParsedMessage.content.toLocaleUpperCase();
+
+        if(ignoreList.includes(word)){
+          continue;
+        }
+
         counts.set(word, 1 + (counts.get(word) || 0));
       }
 
@@ -110,6 +115,7 @@
     const fontColour = urlParams.get("fontColour") || "white";
     const fontStrokeColour = urlParams.get("fontStrokeColour") || "black";
     const fontStrokeWidth = parseInt(urlParams.get("fontStrokeWidth")) || 1;    
+    const ignoreList = (urlParams.get("ignore") || "").toLocaleUpperCase().split(",");
     let twitchUserId = undefined;
 
     document.getElementsByTagName(
